@@ -3,7 +3,7 @@ import sys
 import telebot
 from telebot import types
 
-TOKEN = "8768800680:AAHAm5grpXhdh0gLLSqy8G03UjFjZcMuJY"
+TOKEN = "8768800680:AAE6LUotvVG8o9iGbuTz5_hgvHDFShmrPsg"
 ADMIN_ID = 8516047558  # ВСТАВЬ СЮДА СВОЙ ID ИЗ USERINFOBOT (ТОЛЬКО ЦИФРЫ)
 
 # Проверяем, что ID изменен
