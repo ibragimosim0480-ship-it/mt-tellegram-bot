@@ -3,11 +3,10 @@ import sys
 from threading import Thread
 from flask import Flask
 import telebot
-# Возвращаем types, без них библиотека ругалась на запуск
 from telebot import types 
 
-TOKEN = "8768800680:AAE6LUotvVG8o9iGbuTz5_hgvHDFShmrPsg"
-ADMIN_ID = 8516047558  # СЮДА ВСТАВЬ СВОЙ ID ИЗ USERINFOBOT (ТОЛЬКО ЦИФРЫ)
+TOKEN = "8768800680:AAHLe-lweVOy2VKv5a54XEMeEcVw_2Ygs-Y"
+ADMIN_ID = 8516047558  # ВСТАВЬ СЮДА СВОЙ ID ЦИФРАМИ БЕЗ КАВЫЧЕК
 
 bot = telebot.TeleBot(TOKEN)
 
@@ -23,7 +22,24 @@ def run_web_server():
     app.run(host='0.0.0.0', port=port)
 
 
-# --- 2. ОБРАБОТКА КОМАНДЫ /call ---
+# --- 2. ОБРАБОТКА КОМАНДЫ /start И /help (КНОПКА ПОМОЩИ) ---
+@bot.message_handler(commands=['start', 'help'])
+def send_welcome(message):
+    try:
+        help_text = (
+            "👋 **Привет! Я бот обратной связи.**\n\n"
+            "Вы можете вызвать администратора в любой момент, если у вас возникли вопросы.\n\n"
+            "📌 **Доступные команды:**\n"
+            "🔹 `/call` — Отправить экстренный вызов администратору\n"
+            "🔹 `/help` — Показать это окно помощи\n\n"
+            "После вызова администратор сможет ответить вам прямо здесь, через этот чат!"
+        )
+        bot.reply_to(message, help_text, parse_mode="Markdown")
+    except Exception as e:
+        print(f"Ошибка в команде помощи: {e}")
+
+
+# --- 3. ОБРАБОТКА КОМАНДЫ /call ---
 @bot.message_handler(commands=['call'])
 def handle_call(message):
     try:
@@ -31,10 +47,8 @@ def handle_call(message):
         first_name = message.from_user.first_name
         username = f"@{message.from_user.username}" if message.from_user.username else "нет юзернейма"
 
-        # Ответ тому, кто вызвал
         bot.reply_to(message, "✅ Ваш вызов успешно отправлен администратору!")
 
-        # Уведомление для тебя (ID зашит в самую нижнюю строчку)
         notification_text = (
             f"🔔 **ВАС ВЫЗЫВАЮТ!**\n\n"
             f"👤 Кто вызвал: {first_name}\n"
@@ -49,17 +63,28 @@ def handle_call(message):
         print(f"Ошибка в команде /call: {e}")
 
 
-# --- 3. ПЕРЕСЫЛКА ОТВЕТА ЧЕРЕЗ REPLY ---
+# --- 4. ЕСЛИ ПОЛЬЗОВАТЕЛЬ ПИШЕТ ЛЮБОЙ ДРУГОЙ ТЕКСТ (ПОДПИСЬ-ПОДСКАЗКА) ---
+@bot.message_handler(func=lambda message: message.from_user.id != ADMIN_ID)
+def handle_unknown_text(message):
+    try:
+        # Если пользователь просто пишет текст, не нажав /call, бот вежливо подсказывает команду
+        bot.reply_to(
+            message, 
+            "⚠️ Я не понимаю обычные сообщения.\n"
+            "Чтобы связаться с администратором, отправьте команду `/call` или воспользуйтесь кнопкой «Меню»."
+        )
+    except Exception as e:
+        print(f"Ошибка обработки текста: {e}")
+
+
+# --- 5. ПЕРЕСЫЛКА ОТВЕТА АДМИНИСТРАТОРА ЧЕРЕЗ REPLY ---
 @bot.message_handler(func=lambda message: message.from_user.id == ADMIN_ID and message.reply_to_message is not None)
 def send_reply_to_user(message):
     try:
         reply_text = message.reply_to_message.text
-        
-        # Проверяем, что ты ответил именно на сообщение с вызовом
         if not reply_text or "ID:" not in reply_text:
             return
             
-        # Вытаскиваем ID пользователя из строчки ID:XXXXXX
         target_user_id = int(reply_text.split("ID:")[-1].strip())
         
         bot.send_message(target_user_id, f"💬 **Ответ от администратора:**\n\n{message.text}")
@@ -68,14 +93,12 @@ def send_reply_to_user(message):
         bot.send_message(ADMIN_ID, f"❌ Не удалось отправить ответ. Ошибка: {e}")
 
 
-# --- 4. ЗАПУСК ---
+# --- 6. ЗАПУСК ---
 if __name__ == "__main__":
-    # Включаем Flask на фоне
     server_thread = Thread(target=run_web_server)
     server_thread.daemon = True
     server_thread.start()
 
-    # Включаем самого бота
     try:
         bot_info = bot.get_me()
         print(f"🤖 Бот @{bot_info.username} успешно запущен!")
