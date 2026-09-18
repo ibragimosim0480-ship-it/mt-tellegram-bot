@@ -10,8 +10,6 @@ TOKEN = "8768800680:AAHLe-lweVOy2VKv5a54XEMeEcVw_2Ygs-Y"
 ADMIN_ID = 8516047558  # ОБЯЗАТЕЛЬНО ПОСТАВЬ СВОЙ ID ЦИФРАМИ
 
 bot = telebot.TeleBot(TOKEN)
-
-# Временный список забаненных ID (после перезагрузки сбросится, но для защиты на день отлично подходит)
 BANNED_USERS = set()
 
 # --- 1. ВЕБ-СЕРВЕР FLASK ДЛЯ RENDER ---
@@ -19,14 +17,14 @@ app = Flask('')
 
 @app.route('/')
 def home():
-    return "Супер-Бот Гарант работает стабильно!"
+    return "Супер-Бот Гарант со всеми функциями работает стабильно!"
 
 def run_web_server():
     port = int(os.environ.get("PORT", 10000))
     app.run(host='0.0.0.0', port=port)
 
 
-# --- ФУНКЦИЯ ПРОВЕРКИ ВРЕМЕНИ ПО МСК ---
+# --- ФУНКЦИЯ ПРОВЕРКИ ВРЕМЕНИ ПО МСК (Ночной режим) ---
 def is_working_hours():
     moscow_tz = timezone(timedelta(hours=3))
     moscow_now = datetime.now(moscow_tz)
@@ -38,7 +36,6 @@ def is_working_hours():
 def send_welcome(message):
     if message.from_user.id in BANNED_USERS:
         return
-
     if not is_working_hours() and message.from_user.id != ADMIN_ID:
         bot.reply_to(message, "🌙 Администратор сейчас отдыхает. Бот включится утром в 09:00 по МСК.")
         return
@@ -55,26 +52,23 @@ def send_welcome(message):
     bot.reply_to(message, help_text, parse_mode="Markdown")
 
 
-# --- 3. ФУНКЦИЯ 1: КАЛЬКУЛЯТОР КОМИССИИ (/fee) ---
+# --- 3. КАЛЬКУЛЯТОР КОМИССИИ (/fee) ---
 @bot.message_handler(commands=['fee'])
 def calculate_fee(message):
     if message.from_user.id in BANNED_USERS:
         return
         
     try:
-        # Берем число после команды /fee
         args = message.text.split()
         if len(args) < 2:
             bot.reply_to(message, "⚠️ Напишите сумму сделки через пробел. Например: `/fee 100`", parse_mode="Markdown")
             return
             
         stars = int(args[1])
-        # Считаем комиссию (например, 15%)
         fee_stars = round(stars * 0.15)
         if fee_stars < 1:
             fee_stars = 1
             
-        # Считаем сколько это в мишках (1 мишка = 15 звезд)
         bears = round(fee_stars / 15, 1)
         if bears < 1:
             bears_text = "1 Мишка (сдачу оставишь себе 😉)"
@@ -92,23 +86,21 @@ def calculate_fee(message):
         bot.reply_to(message, "❌ Ошибка! Введите сумму сделки целым числом.")
 
 
-# --- 4. ФУНКЦИЯ 4: ПРОВЕРКА ПОДЛИННОСТИ ГИФТОВ (/check) ---
+# --- 4. ПРОВЕРКА ПОДЛИННОСТИ ГИФТОВ (/check) ---
 @bot.message_handler(commands=['check'])
 def check_gift_instruction(message):
     if message.from_user.id in BANNED_USERS:
         return
-        
     instruction = (
         "🛡️ **АНТИ-ФЕЙК: Как проверить Telegram Gift на подлинность:**\n\n"
-        "Мошенники часто присылают поддельные скриншоты подарков из Фотошопа. Вот как проверить всё на 100%:\n\n"
-        "1️⃣ **Проверка через профиль:** Настоящий подарок ДОЛЖЕН отображаться во вкладке «Подарки» (Gifts) в профиле у человека, который его вам показывает.\n"
-        "2️⃣ **Живой показ:** Попросите человека записать **видео экрана (экранную запись)** или кружочек, где он заходит в Telegram, открывает настройки и показывает этот подарок. На видео подделку сделать невозможно!\n"
-        "3️⃣ **Передача гаранту:** Самый надежный способ — продавец пересылает подарок гаранту первым. Пока подарок не у меня на аккаунте, сделка не начинается!"
+        "1️⃣ **Проверка через профиль:** Настоящий подарок ДОЛЖЕН отображаться во вкладке «Подарки» (Gifts) в профиле у человека.\n"
+        "2️⃣ **Живой показ:** Попросите записать видео экрана, где человек заходит в Telegram и показывает этот подарок.\n"
+        "3️⃣ **Передача гаранту:** Самый надежный способ — продавец пересылает подарок гаранту первым!"
     )
     bot.reply_to(message, instruction, parse_mode="Markdown")
 
 
-# --- 5. ФУНКЦИЯ 2: ЧЁРНЫЙ СПИСОК (/ban И /unban ДЛЯ АДМИНА) ---
+# --- 5. ЧЁРНЫЙ СПИСОК (/ban И /unban ДЛЯ АДМИНА) ---
 @bot.message_handler(commands=['ban'])
 def ban_user(message):
     if message.from_user.id != ADMIN_ID:
@@ -116,13 +108,12 @@ def ban_user(message):
     try:
         args = message.text.split()
         if len(args) < 2:
-            bot.reply_to(message, "⚠️ Напиши ID. Например: `/ban 123456789`")
             return
         user_id = int(args[1])
         BANNED_USERS.add(user_id)
-        bot.reply_to(message, f"🚫 Пользователь {user_id} успешно добавлен в Чёрный список!")
+        bot.reply_to(message, f"🚫 Пользователь {user_id} забанен!")
     except ValueError:
-        bot.reply_to(message, "❌ Неверный формат ID.")
+        pass
 
 @bot.message_handler(commands=['unban'])
 def unban_user(message):
@@ -131,13 +122,12 @@ def unban_user(message):
     try:
         args = message.text.split()
         if len(args) < 2:
-            bot.reply_to(message, "⚠️ Напиши ID. Например: `/unban 123456789`")
             return
         user_id = int(args[1])
         BANNED_USERS.discard(user_id)
         bot.reply_to(message, f"🟢 Пользователь {user_id} разбанен.")
     except ValueError:
-        bot.reply_to(message, "❌ Неверный формат ID.")
+        pass
 
 
 # --- 6. ОБРАБОТКА КОМАНДЫ /call ---
@@ -145,17 +135,16 @@ def unban_user(message):
 def handle_call(message):
     if message.from_user.id in BANNED_USERS:
         return
-
     try:
         if not is_working_hours():
-            bot.reply_to(message, "🌙 Извините, приём заявок окончен. Администратор отдыхает до 09:00 по МСК.")
+            bot.reply_to(message, "🌙 Извините, приём заявок окончен. Бот включится утром в 09:00 по МСК.")
             return
 
         user_id = message.from_user.id
         first_name = message.from_user.first_name
         username = f"@{message.from_user.username}" if message.from_user.username else "нет юзернейма"
 
-        bot.reply_to(message, "✅ Ваша заявка гаранту успешно отправлена! Ожидайте ответа администратора.")
+        bot.reply_to(message, "✅ Ваша заявка гаранту успешно отправлена!")
 
         notification_text = (
             f"🔔 **НОВАЯ ЗАЯВКА НА СДЕЛКУ!**\n\n"
@@ -197,5 +186,4 @@ if __name__ == "__main__":
         print(f"🤖 Бот @{bot_info.username} успешно запущен!")
         bot.infinity_polling(timeout=20, long_polling_timeout=10)
     except Exception as e:
-        print(f"Ошибка поллинга: {e}")
         sys.exit(1)
