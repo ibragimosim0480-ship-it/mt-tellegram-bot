@@ -1,12 +1,13 @@
 import os
 import sys
 from threading import Thread
+from datetime import datetime, timedelta, timezone
 from flask import Flask
 import telebot
 from telebot import types 
 
 TOKEN = "8768800680:AAHLe-lweVOy2VKv5a54XEMeEcVw_2Ygs-Y"
-ADMIN_ID = 8516047558  # ВСТАВЬ СЮДА СВОЙ ID ЦИФРАМИ БЕЗ КАВЫЧЕК
+ADMIN_ID = 8516047558  # ТВОЙ ID ЦИФРАМИ БЕЗ КАВЫЧЕК
 
 bot = telebot.TeleBot(TOKEN)
 
@@ -22,17 +23,35 @@ def run_web_server():
     app.run(host='0.0.0.0', port=port)
 
 
-# --- 2. ОБРАБОТКА КОМАНДЫ /start И /help (КНОПКА ПОМОЩИ) ---
+# --- ФУНКЦИЯ ПРОВЕРКИ РАБОЧЕГО ВРЕМЕНИ ПО МСК ---
+def is_working_hours():
+    # Создаем часовой пояс Москвы (UTC+3)
+    moscow_tz = timezone(timedelta(hours=3))
+    # Получаем текущее точное время по Москве
+    moscow_now = datetime.now(moscow_tz)
+    current_hour = moscow_now.hour
+
+    # Бот работает с 9 утра (включая 9:00) до 8 вечера (в 20:00 уже отключается)
+    if 9 <= current_hour < 20:
+        return True
+    return False
+
+
+# --- 2. ОБРАБОТКА КОМАНДЫ /start И /help ---
 @bot.message_handler(commands=['start', 'help'])
 def send_welcome(message):
     try:
+        # Если ночь — бот не реагирует или вежливо пишет, что спит
+        if not is_working_hours():
+            bot.reply_to(message, "🌙 Администратор сейчас отдыхает. Бот включится утром в 09:00 по МСК.")
+            return
+
         help_text = (
             "👋 **Привет! Я бот обратной связи.**\n\n"
-            "Вы можете вызвать администратора в любой момент, если у вас возникли вопросы.\n\n"
             "📌 **Доступные команды:**\n"
             "🔹 `/call` — Отправить экстренный вызов администратору\n"
             "🔹 `/help` — Показать это окно помощи\n\n"
-            "После вызова администратор сможет ответить вам прямо здесь, через этот чат!"
+            "⏰ **Режим работы:** с 09:00 до 20:00 по МСК."
         )
         bot.reply_to(message, help_text, parse_mode="Markdown")
     except Exception as e:
@@ -43,6 +62,11 @@ def send_welcome(message):
 @bot.message_handler(commands=['call'])
 def handle_call(message):
     try:
+        # Проверяем время перед отправкой вызова
+        if not is_working_hours():
+            bot.reply_to(message, "🌙 Извините, приём заявок окончен. Администратор отдыхает до 09:00 по МСК.")
+            return
+
         user_id = message.from_user.id
         first_name = message.from_user.first_name
         username = f"@{message.from_user.username}" if message.from_user.username else "нет юзернейма"
@@ -54,7 +78,6 @@ def handle_call(message):
             f"👤 Кто вызвал: {first_name}\n"
             f"🆔 ID аккаунта: {user_id}\n"
             f"🔗 Ссылка: {username}\n\n"
-            f"✍️ Чтобы ответить человеку, сделай ОТВЕТ (Reply) на это сообщение и напиши свой текст.\n"
             f"ID:{user_id}"
         )
 
@@ -63,21 +86,24 @@ def handle_call(message):
         print(f"Ошибка в команде /call: {e}")
 
 
-# --- 4. ЕСЛИ ПОЛЬЗОВАТЕЛЬ ПИШЕТ ЛЮБОЙ ДРУГОЙ ТЕКСТ (ПОДПИСЬ-ПОДСКАЗКА) ---
+# --- 4. ЕСЛИ ПОЛЬЗОВАТЕЛЬ ПИШЕТ ЛЮБОЙ ДРУГОЙ ТЕКСТ ---
 @bot.message_handler(func=lambda message: message.from_user.id != ADMIN_ID)
 def handle_unknown_text(message):
     try:
-        # Если пользователь просто пишет текст, не нажав /call, бот вежливо подсказывает команду
+        if not is_working_hours():
+            bot.reply_to(message, "🌙 Бот спит до 09:00 по МСК. Сообщения не принимаются.")
+            return
+            
         bot.reply_to(
             message, 
             "⚠️ Я не понимаю обычные сообщения.\n"
-            "Чтобы связаться с администратором, отправьте команду `/call` или воспользуйтесь кнопкой «Меню»."
+            "Чтобы связаться с администратором, отправьте команду `/call`."
         )
     except Exception as e:
         print(f"Ошибка обработки текста: {e}")
 
 
-# --- 5. ПЕРЕСЫЛКА ОТВЕТА АДМИНИСТРАТОРА ЧЕРЕЗ REPLY ---
+# --- 5. П ПЕРЕСЫЛКА ОТВЕТА АДМИНИСТРАТОРА ЧЕРЕЗ REPLY ---
 @bot.message_handler(func=lambda message: message.from_user.id == ADMIN_ID and message.reply_to_message is not None)
 def send_reply_to_user(message):
     try:
