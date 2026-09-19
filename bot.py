@@ -17,7 +17,7 @@ app = Flask('')
 
 @app.route('/')
 def home():
-    return "Супер-Бот Гарант со всеми функциями работает стабильно!"
+    return "Супер-Бот Гарант с комиссией 5% работает стабильно!"
 
 def run_web_server():
     port = int(os.environ.get("PORT", 10000))
@@ -52,7 +52,7 @@ def send_welcome(message):
     bot.reply_to(message, help_text, parse_mode="Markdown")
 
 
-# --- 3. КАЛЬКУЛЯТОР КОМИССИИ (/fee) ---
+# --- 3. ОБНОВЛЕННЫЙ КАЛЬКУЛЯТОР КОМИССИИ (СТРОГО 5%) ---
 @bot.message_handler(commands=['fee'])
 def calculate_fee(message):
     if message.from_user.id in BANNED_USERS:
@@ -65,20 +65,22 @@ def calculate_fee(message):
             return
             
         stars = int(args[1])
-        fee_stars = round(stars * 0.15)
+        
+        # 🔥 МЕНЯЕМ 15% НА 5% (умножаем на 0.05)
+        fee_stars = round(stars * 0.05)
         if fee_stars < 1:
-            fee_stars = 1
+            fee_stars = 1 # Комиссия не может быть меньше 1 звезды
             
         bears = round(fee_stars / 15, 1)
         if bears < 1:
-            bears_text = "1 Мишка (сдачу оставишь себе 😉)"
+            bears_text = f"{fee_stars} Звёзд (на Мишку пока не хватает)"
         else:
             bears_text = f"{bears} шт. Мишек"
 
         result_text = (
             f"🧮 **Расчет сделки на {stars} 🌟:**\n\n"
             f"🔹 Продавцу прилетит: {stars} Звёзд\n"
-            f"🔹 Комиссия гаранта (15%): {fee_stars} Звёзд\n"
+            f"🔹 Комиссия гаранта (Низкий тариф 5%): {fee_stars} Звёзд\n"
             f"🎁 **Оплата за работу гаранту:** {bears_text} (из расчета 1 Мишка = 15 🌟)"
         )
         bot.reply_to(message, result_text, parse_mode="Markdown")
@@ -100,7 +102,7 @@ def check_gift_instruction(message):
     bot.reply_to(message, instruction, parse_mode="Markdown")
 
 
-# --- 5. ЧЁРНЫЙ СПИСОК (/ban И /unban ДЛЯ АДМИНА) ---
+# --- 5. ЧЁРНЫЙ СПИСОК ДЛЯ АДМИНА ---
 @bot.message_handler(commands=['ban'])
 def ban_user(message):
     if message.from_user.id != ADMIN_ID:
@@ -159,7 +161,7 @@ def handle_call(message):
         print(f"Ошибка в команде /call: {e}")
 
 
-# --- 7. ПЕРЕСЫЛКА ОТВЕТА АДМИНИСТРАТОРА ЧЕРЕЗ REPLY ---
+# --- 7. ПЕРЕСЫЛКА ОТВЕТА ЧЕРЕЗ REPLY ---
 @bot.message_handler(func=lambda message: message.from_user.id == ADMIN_ID and message.reply_to_message is not None)
 def send_reply_to_user(message):
     try:
